@@ -78,7 +78,7 @@ jobs:
 
 
       # ==========================================
-      # CREATE PACKAGE.JSON (WITH BIOMETRIC PLUGIN)
+      # CREATE PACKAGE.JSON
       # ==========================================
       - name: Create package.json
         run: |
@@ -134,7 +134,7 @@ jobs:
 
 
       # ==========================================
-      # ENABLE FULLSCREEN MAIN ACTIVITY
+      # ENABLE FULLSCREEN
       # ==========================================
       - name: Enable Fullscreen
         run: |
@@ -153,15 +153,11 @@ jobs:
           if not main_activity:
               raise SystemExit("MainActivity.java not found.")
 
-          print("Found:", main_activity)
-
           with open(main_activity, "r", encoding="utf-8") as f:
               original = f.read()
 
           package_match = re.search(
-              r'^\s*package\s+([^;]+);',
-              original,
-              re.MULTILINE
+              r'^\s*package\s+([^;]+);', original, re.MULTILINE
           )
 
           if not package_match:
@@ -208,7 +204,7 @@ jobs:
 
 
       # ==========================================
-      # SYNC ANDROID (AFTER PLUGIN INSTALL)
+      # SYNC ANDROID
       # ==========================================
       - name: Sync Android
         run: |
@@ -232,9 +228,9 @@ jobs:
 
 
       # ==========================================
-      # LOAD KEYSTORE
+      # LOAD KEYSTORE FROM SECRET
       # ==========================================
-      - name: Load existing keystore
+      - name: Load keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -251,18 +247,44 @@ jobs:
 
 
       # ==========================================
-      # SIGNING PROPERTIES
+      # AUTO-DETECT ALIAS + CONFIGURE SIGNING
       # ==========================================
-      - name: Configure signing
+      - name: Configure signing (auto-detect alias)
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           test -n "$KEYSTORE_PASSWORD"
 
-          # اگر KEY_ALIAS توی secrets نبود، پیش‌فرض ideavault
-          ALIAS="${KEY_ALIAS:-ideavault}"
+          # پیدا کردن keytool
+          if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/keytool" ]; then
+            KEYTOOL="$JAVA_HOME/bin/keytool"
+          else
+            KEYTOOL="keytool"
+          fi
 
+          echo "Using keytool: $KEYTOOL"
+
+          # استخراج alias واقعی از keystore
+          ALIAS=$("$KEYTOOL" -list -v \
+            -keystore android/app/IdeaVault.keystore \
+            -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+            | grep "Alias name:" \
+            | head -n 1 \
+            | sed 's/.*Alias name: //' \
+            | tr -d ' \r')
+
+          if [ -z "$ALIAS" ]; then
+            echo "ERROR: Could not detect alias."
+            echo "--- Keystore info ---"
+            "$KEYTOOL" -list \
+              -keystore android/app/IdeaVault.keystore \
+              -storepass "$KEYSTORE_PASSWORD" || true
+            exit 1
+          fi
+
+          echo "✅ Auto-detected alias: $ALIAS"
+
+          # نوشتن در gradle.properties
           cat >> android/gradle.properties <<EOF
 
           IDEA_VAULT_KEYSTORE_FILE=IdeaVault.keystore
@@ -271,11 +293,11 @@ jobs:
           IDEA_VAULT_KEY_PASSWORD=${KEYSTORE_PASSWORD}
           EOF
 
-          echo "Signing configured with alias: $ALIAS"
+          echo "Signing configured."
 
 
       # ==========================================
-      # CONFIGURE ANDROID GRADLE + MIN SDK
+      # CONFIGURE ANDROID GRADLE
       # ==========================================
       - name: Configure Android Gradle
         run: |
@@ -287,25 +309,17 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               text = f.read()
 
-          # applicationId
           text = re.sub(
               r'applicationId\s+"[^"]+"',
               'applicationId "com.ideavault.app"',
               text, count=1
           )
 
-          # compileSdk
-          text = re.sub(
-              r'compileSdk\s+\d+',
-              'compileSdk 35',
-              text, count=1
-          )
+          text = re.sub(r'compileSdk\s+\d+', 'compileSdk 35', text, count=1)
 
-          # minSdk → حداقل 23 برای بیومتریک
           if re.search(r'minSdk\s+(\d+)', text):
               def fix_min(m):
-                  val = int(m.group(1))
-                  return 'minSdk ' + str(max(val, 23))
+                  return 'minSdk ' + str(max(int(m.group(1)), 23))
               text = re.sub(r'minSdk\s+(\d+)', fix_min, text, count=1)
           else:
               text = re.sub(
@@ -314,28 +328,18 @@ jobs:
                   text, count=1
               )
 
-          # targetSdk
-          text = re.sub(
-              r'targetSdk\s+\d+',
-              'targetSdk 35',
-              text, count=1
-          )
-
-          # versionCode
+          text = re.sub(r'targetSdk\s+\d+', 'targetSdk 35', text, count=1)
           text = re.sub(
               r'versionCode\s+\d+',
               'versionCode ' + os.environ["VERSION_CODE"],
               text, count=1
           )
-
-          # versionName
           text = re.sub(
               r'versionName\s+"[^"]+"',
               'versionName "' + os.environ["VERSION_NAME"] + '"',
               text, count=1
           )
 
-          # حذف signingConfigs قدیمی
           text = re.sub(
               r'\n\s*signingConfigs\s*\{.*?\n\s*\}\s*(?=\n\s*buildTypes)',
               '', text, count=1, flags=re.S
@@ -362,7 +366,6 @@ jobs:
                   1
               )
 
-          # Release signing config
           release_pattern = r'(buildTypes\s*\{\s*release\s*\{)'
           if "signingConfig signingConfigs.release" not in text:
               text = re.sub(
@@ -371,7 +374,6 @@ jobs:
                   text, count=1, flags=re.S
               )
 
-          # minify off
           if re.search(r'buildTypes\s*\{.*?release\s*\{', text, re.S):
               rm = re.search(
                   r'(buildTypes\s*\{\s*release\s*\{)(.*?)(\n\s*\})',
@@ -409,7 +411,6 @@ jobs:
           with open(path, "r", encoding="utf-8") as f:
               text = f.read()
 
-          # پاک کردن پرمیشن‌های اضافی
           unnecessary = [
               "READ_CONTACTS", "WRITE_CONTACTS",
               "READ_SMS", "SEND_SMS", "RECEIVE_SMS",
@@ -427,12 +428,10 @@ jobs:
               pattern = r'\s*<uses-permission\s+android:name="android\.permission\.' + p + r'"\s*/>'
               text = re.sub(pattern, '', text)
 
-          # اضافه کردن USE_BIOMETRIC
           if "USE_BIOMETRIC" not in text:
               last_perm = list(re.finditer(r'<uses-permission[^>]*/>', text))
               if last_perm:
-                  last = last_perm[-1]
-                  insert_pos = last.end()
+                  insert_pos = last_perm[-1].end()
                   text = (
                       text[:insert_pos]
                       + '\n    <uses-permission android:name="android.permission.USE_BIOMETRIC" />'
@@ -445,7 +444,6 @@ jobs:
                       1
                   )
 
-          # USE_FINGERPRINT برای سازگاری
           if "USE_FINGERPRINT" not in text:
               text = re.sub(
                   r'(<uses-permission android:name="android\.permission\.USE_BIOMETRIC"\s*/>)',
@@ -456,7 +454,7 @@ jobs:
           with open(path, "w", encoding="utf-8") as f:
               f.write(text)
 
-          print("Manifest configured with biometric permissions.")
+          print("Manifest configured.")
           PY
 
 
@@ -469,20 +467,16 @@ jobs:
 
 
       # ==========================================
-      # GENERATE IDEA VAULT ICON (AUTO)
+      # GENERATE IDEA VAULT ICON
       # ==========================================
       - name: Generate IdeaVault icon
         run: |
           python3 - <<'PY'
           from PIL import Image, ImageDraw, ImageFilter
-          import math
 
           SIZE = 1024
           img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 
-          # ==========================================
-          # GRADIENT BACKGROUND
-          # ==========================================
           bg = Image.new("RGBA", (SIZE, SIZE))
           bg_draw = ImageDraw.Draw(bg)
 
@@ -494,7 +488,6 @@ jobs:
                   b = int(23 + (80 - 23) * t)
                   bg_draw.rectangle([x, y, x + 4, y + 1], fill=(r, g, b, 255))
 
-          # درخشش رادیال مرکزی
           glow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
           glow_draw = ImageDraw.Draw(glow)
           cx, cy = SIZE // 2, SIZE // 2
@@ -509,24 +502,16 @@ jobs:
           glow = glow.filter(ImageFilter.GaussianBlur(30))
           bg = Image.alpha_composite(bg, glow)
 
-          # ==========================================
-          # ROUNDED SQUARE MASK
-          # ==========================================
           mask = Image.new("L", (SIZE, SIZE), 0)
           mask_draw = ImageDraw.Draw(mask)
-          radius = int(SIZE * 0.22)
           mask_draw.rounded_rectangle(
               [0, 0, SIZE, SIZE],
-              radius=radius,
-              fill=255
+              radius=int(SIZE * 0.22), fill=255
           )
 
           result = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
           result.paste(bg, (0, 0), mask)
 
-          # ==========================================
-          # LIGHTBULB - GLOW HALO
-          # ==========================================
           halo = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
           halo_draw = ImageDraw.Draw(halo)
 
@@ -545,9 +530,6 @@ jobs:
           result = Image.alpha_composite(result, halo)
           draw = ImageDraw.Draw(result)
 
-          # ==========================================
-          # LIGHTBULB GLASS
-          # ==========================================
           draw.ellipse(
               [bulb_cx - bulb_r, bulb_cy - bulb_r,
                bulb_cx + bulb_r, bulb_cy + bulb_r],
@@ -556,7 +538,6 @@ jobs:
               width=6
           )
 
-          # highlight
           hl_r = int(bulb_r * 0.45)
           hl_off = int(bulb_r * 0.35)
           draw.ellipse(
@@ -565,31 +546,21 @@ jobs:
               fill=(255, 255, 255, 180)
           )
 
-          # ==========================================
-          # FILAMENT
-          # ==========================================
           f_y = bulb_cy + int(bulb_r * 0.15)
           f_w = int(bulb_r * 0.55)
           f_h = int(bulb_r * 0.55)
 
           draw.arc(
-              [bulb_cx - f_w, f_y - f_h // 2,
-               bulb_cx, f_y + f_h // 2],
+              [bulb_cx - f_w, f_y - f_h // 2, bulb_cx, f_y + f_h // 2],
               start=180, end=360,
-              fill=(251, 191, 36, 255),
-              width=8
+              fill=(251, 191, 36, 255), width=8
           )
           draw.arc(
-              [bulb_cx, f_y - f_h // 2,
-               bulb_cx + f_w, f_y + f_h // 2],
+              [bulb_cx, f_y - f_h // 2, bulb_cx + f_w, f_y + f_h // 2],
               start=180, end=360,
-              fill=(251, 191, 36, 255),
-              width=8
+              fill=(251, 191, 36, 255), width=8
           )
 
-          # ==========================================
-          # BASE
-          # ==========================================
           base_w = int(bulb_r * 0.75)
           base_h = int(bulb_r * 0.30)
           base_y = bulb_cy + bulb_r - int(bulb_r * 0.05)
@@ -608,17 +579,13 @@ jobs:
               draw.line(
                   [bulb_cx - base_w // 2 + 4, y,
                    bulb_cx + base_w // 2 - 4, y],
-                  fill=(71, 85, 105, 255),
-                  width=3
+                  fill=(71, 85, 105, 255), width=3
               )
 
-          # ==========================================
-          # VAULT KEYHOLE
-          # ==========================================
           key_cx = bulb_cx
           key_cy = bulb_cy + int(bulb_r * 0.05)
-
           key_r = int(bulb_r * 0.18)
+
           draw.ellipse(
               [key_cx - key_r, key_cy - key_r,
                key_cx + key_r, key_cy + key_r],
@@ -645,20 +612,13 @@ jobs:
               fill=(30, 41, 59, 255)
           )
 
-          # ==========================================
-          # GOLD RING
-          # ==========================================
           ring_r = bulb_r + 20
           draw.ellipse(
               [bulb_cx - ring_r, bulb_cy - ring_r,
                bulb_cx + ring_r, bulb_cy + ring_r],
-              outline=(251, 191, 36, 200),
-              width=4
+              outline=(251, 191, 36, 200), width=4
           )
 
-          # ==========================================
-          # SHADOW
-          # ==========================================
           shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
           shadow_draw = ImageDraw.Draw(shadow)
           shadow_draw.ellipse(
@@ -669,9 +629,6 @@ jobs:
           shadow = shadow.filter(ImageFilter.GaussianBlur(15))
           result = Image.alpha_composite(result, shadow)
 
-          # ==========================================
-          # SAVE
-          # ==========================================
           result.save("icon.png", "PNG", optimize=True)
           print("icon.png generated:", result.size)
           PY
@@ -687,28 +644,20 @@ jobs:
           import os
 
           filename = "icon.png"
-
           if not os.path.exists(filename):
               raise SystemExit("icon.png not found!")
-
-          print("Loading:", filename)
 
           source = Image.open(filename).convert("RGBA")
 
           sizes = {
-              "mdpi": 48,
-              "hdpi": 72,
-              "xhdpi": 96,
-              "xxhdpi": 144,
-              "xxxhdpi": 192
+              "mdpi": 48, "hdpi": 72, "xhdpi": 96,
+              "xxhdpi": 144, "xxxhdpi": 192
           }
 
           for density, size in sizes.items():
               folder = f"android/app/src/main/res/mipmap-{density}"
               os.makedirs(folder, exist_ok=True)
-
               icon = source.resize((size, size), Image.Resampling.LANCZOS)
-
               icon.save(folder + "/ic_launcher.png")
               icon.save(folder + "/ic_launcher_round.png")
 
@@ -745,10 +694,6 @@ jobs:
           echo ""
           echo "BIOMETRIC PERMISSIONS:"
           grep -i "biometric\|fingerprint" android/app/src/main/AndroidManifest.xml
-
-          echo ""
-          echo "ICON FILES:"
-          ls -la android/app/src/main/res/mipmap-xxxhdpi/
 
 
       # ==========================================
