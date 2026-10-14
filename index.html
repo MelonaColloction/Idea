@@ -98,139 +98,6 @@
       overflow-x: hidden;
     }
 
-    /* ================= LOCK SCREEN ================= */
-    .lock-screen {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      background: var(--bg);
-      background-image:
-        radial-gradient(circle at 20% 30%, var(--bg-grad-1) 0%, transparent 45%),
-        radial-gradient(circle at 80% 70%, var(--bg-grad-2) 0%, transparent 50%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      transition: opacity 0.5s ease, visibility 0.5s ease;
-    }
-
-    .lock-screen.unlocked {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
-    .lock-content {
-      text-align: center;
-      max-width: 340px;
-      width: 100%;
-      animation: lockFadeIn 0.6s ease;
-    }
-
-    @keyframes lockFadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .fingerprint-circle {
-      width: 130px;
-      height: 130px;
-      margin: 0 auto 2rem;
-      border-radius: 50%;
-      background: var(--panel-bg);
-      border: 2px solid var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      cursor: pointer;
-      box-shadow:
-        0 0 0 8px rgba(59, 130, 246, 0.08),
-        0 0 40px var(--accent-glow);
-      transition: all 0.3s ease;
-    }
-
-    .fingerprint-circle:active { transform: scale(0.97); }
-
-    .fingerprint-circle.scanning {
-      animation: scanPulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes scanPulse {
-      0%, 100% {
-        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.08), 0 0 40px var(--accent-glow);
-      }
-      50% {
-        box-shadow: 0 0 0 18px rgba(59, 130, 246, 0.15), 0 0 70px var(--accent-glow);
-      }
-    }
-
-    .fingerprint-circle.success {
-      border-color: var(--success);
-      box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.15), 0 0 60px #22c55eaa;
-    }
-
-    .fingerprint-circle.error {
-      border-color: var(--danger);
-      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.15), 0 0 60px #ef4444aa;
-      animation: shake 0.4s ease;
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-8px); }
-      75% { transform: translateX(8px); }
-    }
-
-    .fingerprint-icon {
-      font-size: 4rem;
-      line-height: 1;
-      filter: drop-shadow(0 0 12px var(--accent-glow));
-      transition: all 0.3s ease;
-    }
-
-    .lock-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 0.6rem;
-    }
-
-    .lock-subtitle {
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      line-height: 1.7;
-      margin-bottom: 1.5rem;
-    }
-
-    .lock-btn {
-      background: linear-gradient(145deg, var(--accent), var(--accent-2));
-      border: 1px solid var(--accent);
-      color: #fff;
-      padding: 0.95rem 2rem;
-      border-radius: 1.2rem;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      box-shadow: 0 10px 24px -10px var(--accent-glow);
-      width: 100%;
-    }
-
-    .lock-btn:active { transform: scale(0.97); }
-
-    .lock-status {
-      margin-top: 1.2rem;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      min-height: 1.3em;
-      transition: color 0.2s;
-    }
-
-    .lock-status.error { color: var(--danger); }
-    .lock-status.success { color: var(--success); }
-
     /* ================= PANEL ================= */
     .panel {
       width: 100%;
@@ -244,16 +111,6 @@
       padding: 2rem 1.8rem;
       margin-top: 1rem;
       transition: background 0.4s ease, border-color 0.4s ease;
-    }
-
-    .app-content {
-      opacity: 1;
-      transition: opacity 0.5s ease;
-    }
-
-    .app-content.hidden {
-      opacity: 0;
-      pointer-events: none;
     }
 
     /* ================= HEADER ================= */
@@ -370,6 +227,8 @@
       margin-top: 0.7rem;
       font-size: 0.82rem;
       color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 0.4rem;
     }
 
     .stats-detail strong { color: var(--text-secondary); font-weight: 600; }
@@ -698,6 +557,7 @@
       .sort-wrap, .sort-btn { width: 100%; justify-content: space-between; }
       .add-section { flex-direction: column; }
       .add-section button { justify-content: center; padding: 0.9rem; }
+      .idea-list { max-height: 42vh; }
     }
 
     .idea-item.new-item { animation: pulse 0.6s ease; }
@@ -710,21 +570,7 @@
 </head>
 <body>
 
-  <!-- ================= LOCK SCREEN ================= -->
-  <div class="lock-screen" id="lockScreen">
-    <div class="lock-content">
-      <div class="fingerprint-circle" id="fingerprintBtn">
-        <div class="fingerprint-icon" id="fingerprintIcon">🔒</div>
-      </div>
-      <h2 class="lock-title">IdeaVault</h2>
-      <p class="lock-subtitle">برای ورود، اثر انگشت خود را روی حسگر قرار دهید</p>
-      <button class="lock-btn" id="unlockBtn">👆 لمس برای اسکن</button>
-      <div class="lock-status" id="lockStatus"></div>
-    </div>
-  </div>
-
-  <!-- ================= MAIN APP ================= -->
-  <div class="panel app-content hidden" id="appContent">
+  <div class="panel">
     <div class="header">
       <h1><span class="icon">💡</span> IdeaVault</h1>
       <div class="header-actions">
@@ -778,520 +624,299 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module">
-    /* =========================================================
-       IMPORT CAPACITOR & BIOMETRIC
-    ========================================================= */
-    let BiometricAuth = null;
-    let Capacitor = null;
+  <script>
+    (function () {
+      const STORAGE_KEY = 'ideavault_ideas_v1';
+      const THEME_KEY = 'ideavault_theme';
+      const SORT_KEY = 'ideavault_sort';
 
-    try {
-      const capCore = await import('@capacitor/core');
-      Capacitor = capCore.Capacitor;
+      const ideaListEl = document.getElementById('ideaList');
+      const ideaInput = document.getElementById('ideaInput');
+      const addBtn = document.getElementById('addBtn');
+      const searchInput = document.getElementById('searchInput');
+      const clearSearch = document.getElementById('clearSearch');
+      const themeToggle = document.getElementById('themeToggle');
+      const sortWrap = document.getElementById('sortWrap');
+      const sortBtn = document.getElementById('sortBtn');
+      const sortLabel = document.getElementById('sortLabel');
+      const progressFill = document.getElementById('progressFill');
+      const percentNum = document.getElementById('percentNum');
+      const doneStat = document.getElementById('doneStat');
+      const remainStat = document.getElementById('remainStat');
+      const totalStat = document.getElementById('totalStat');
+      const toastEl = document.getElementById('toast');
 
-      if (Capacitor.isNativePlatform()) {
-        const bioModule = await import('@aparajita/capacitor-biometric-auth');
-        BiometricAuth = bioModule.BiometricAuth;
+      let currentSort = localStorage.getItem(SORT_KEY) || 'newest';
+      let searchQuery = '';
+
+      const sortLabels = {
+        newest: 'جدیدترین',
+        oldest: 'قدیمی‌ترین',
+        incomplete: 'انجام‌نشده‌ها اول',
+        completed: 'انجام‌شده‌ها اول',
+        alpha: 'الفبایی'
+      };
+
+      function toFa(num) {
+        const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+        return String(num).replace(/\d/g, d => fa[d]);
       }
-    } catch (e) {
-      console.log('Browser mode - biometric disabled');
-    }
 
-    /* =========================================================
-       DOM
-    ========================================================= */
-    const lockScreen = document.getElementById('lockScreen');
-    const appContent = document.getElementById('appContent');
-    const fingerprintBtn = document.getElementById('fingerprintBtn');
-    const fingerprintIcon = document.getElementById('fingerprintIcon');
-    const unlockBtn = document.getElementById('unlockBtn');
-    const lockStatus = document.getElementById('lockStatus');
+      let toastTimer;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+      }
 
-    const ideaListEl = document.getElementById('ideaList');
-    const ideaInput = document.getElementById('ideaInput');
-    const addBtn = document.getElementById('addBtn');
-    const searchInput = document.getElementById('searchInput');
-    const clearSearch = document.getElementById('clearSearch');
-    const themeToggle = document.getElementById('themeToggle');
-    const sortWrap = document.getElementById('sortWrap');
-    const sortBtn = document.getElementById('sortBtn');
-    const sortLabel = document.getElementById('sortLabel');
-    const progressFill = document.getElementById('progressFill');
-    const percentNum = document.getElementById('percentNum');
-    const doneStat = document.getElementById('doneStat');
-    const remainStat = document.getElementById('remainStat');
-    const totalStat = document.getElementById('totalStat');
-    const toastEl = document.getElementById('toast');
+      function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
+        localStorage.setItem(THEME_KEY, theme);
+      }
 
-    const STORAGE_KEY = 'ideavault_ideas_v1';
-    const THEME_KEY = 'ideavault_theme';
-    const SORT_KEY = 'ideavault_sort';
+      function initTheme() {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved) { applyTheme(saved); return; }
+        const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+        applyTheme(prefersLight ? 'light' : 'dark');
+      }
 
-    let currentSort = localStorage.getItem(SORT_KEY) || 'newest';
-    let searchQuery = '';
-    let isAuthenticated = false;
+      themeToggle.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme');
+        applyTheme(cur === 'light' ? 'dark' : 'light');
+      });
 
-    const sortLabels = {
-      newest: 'جدیدترین',
-      oldest: 'قدیمی‌ترین',
-      incomplete: 'انجام‌نشده‌ها اول',
-      completed: 'انجام‌شده‌ها اول',
-      alpha: 'الفبایی'
-    };
+      function loadIdeas() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      }
 
-    /* =========================================================
-       HELPERS
-    ========================================================= */
-    function toFa(num) {
-      const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-      return String(num).replace(/\d/g, d => fa[d]);
-    }
+      function saveIdeas(ideas) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ideas));
+      }
 
-    let toastTimer;
-    function showToast(msg) {
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
-    }
+      function updateStats(ideas) {
+        const total = ideas.length;
+        const done = ideas.filter(i => i.completed).length;
+        const remain = total - done;
+        const percent = total === 0 ? 0 : Math.round((done / total) * 100);
 
-    function setLockStatus(text, type = '') {
-      lockStatus.textContent = text;
-      lockStatus.className = 'lock-status' + (type ? ' ' + type : '');
-    }
+        progressFill.style.width = percent + '%';
+        percentNum.textContent = toFa(percent) + '٪';
+        doneStat.textContent = toFa(done);
+        remainStat.textContent = toFa(remain);
+        totalStat.textContent = toFa(total);
+      }
 
-    /* =========================================================
-       BIOMETRIC AUTHENTICATION (MANDATORY)
-    ========================================================= */
-    async function authenticate() {
-      if (isAuthenticated) return;
+      function filterAndSort(ideas) {
+        let list = [...ideas];
 
-      setLockStatus('در حال بررسی...');
-      fingerprintBtn.classList.add('scanning');
-      fingerprintIcon.textContent = '👆';
+        if (searchQuery.trim()) {
+          const q = searchQuery.trim().toLowerCase();
+          list = list.filter(i => i.text.toLowerCase().includes(q));
+        }
 
-      try {
-        // اگر داخل اندروید هستیم
-        if (BiometricAuth && Capacitor && Capacitor.isNativePlatform()) {
-          const info = await BiometricAuth.checkBiometry();
+        switch (currentSort) {
+          case 'newest':
+            list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            break;
+          case 'oldest':
+            list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            break;
+          case 'incomplete':
+            list.sort((a, b) => {
+              if (a.completed !== b.completed) return a.completed ? 1 : -1;
+              return (b.createdAt || 0) - (a.createdAt || 0);
+            });
+            break;
+          case 'completed':
+            list.sort((a, b) => {
+              if (a.completed !== b.completed) return a.completed ? -1 : 1;
+              return (b.createdAt || 0) - (a.createdAt || 0);
+            });
+            break;
+          case 'alpha':
+            list.sort((a, b) => a.text.localeCompare(b.text, 'fa'));
+            break;
+        }
+        return list;
+      }
 
-          if (!info.isAvailable) {
-            throw new Error('اثر انگشت روی این دستگاه در دسترس نیست');
+      function highlightText(text, query) {
+        if (!query.trim()) return document.createTextNode(text);
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
+        const parts = text.split(regex);
+        const frag = document.createDocumentFragment();
+        parts.forEach(part => {
+          if (part.toLowerCase() === query.toLowerCase()) {
+            const mark = document.createElement('mark');
+            mark.textContent = part;
+            frag.appendChild(mark);
+          } else if (part) {
+            frag.appendChild(document.createTextNode(part));
           }
+        });
+        return frag;
+      }
 
-          await BiometricAuth.authenticate({
-            reason: 'برای دسترسی به IdeaVault، هویت خود را تأیید کنید',
-            cancelTitle: 'لغو',
-            allowDeviceCredential: true,
-            iosFallbackTitle: 'استفاده از رمز',
-            androidTitle: 'ورود به IdeaVault',
-            androidSubtitle: 'اثر انگشت خود را روی حسگر قرار دهید',
-            androidConfirmationRequired: false
+      function render() {
+        const all = loadIdeas();
+        const visible = filterAndSort(all);
+
+        ideaListEl.innerHTML = '';
+
+        if (all.length === 0) {
+          ideaListEl.innerHTML = `
+            <div class="empty-state">
+              <span class="emoji">✨</span>
+              هنوز ایده‌ای ثبت نشده<br>
+              اولین ایده‌ات رو بنویس و اضافه کن
+            </div>`;
+        } else if (visible.length === 0) {
+          ideaListEl.innerHTML = `
+            <div class="empty-state">
+              <span class="emoji">🔍</span>
+              ایده‌ای با این جستجو پیدا نشد
+            </div>`;
+        } else {
+          visible.forEach((idea, index) => {
+            const item = document.createElement('div');
+            item.className = `idea-item ${idea.completed ? 'completed' : ''}`;
+            item.dataset.id = idea.id;
+            item.style.animationDelay = `${Math.min(index * 0.025, 0.25)}s`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'idea-check';
+            checkbox.checked = !!idea.completed;
+
+            checkbox.addEventListener('change', (e) => {
+              const allList = loadIdeas();
+              const target = allList.find(i => i.id === idea.id);
+              if (target) {
+                target.completed = e.target.checked;
+                saveIdeas(allList);
+              }
+              item.classList.toggle('completed', e.target.checked);
+              updateStats(allList);
+              showToast(e.target.checked ? '✅ انجام شد!' : '↩️ برگشت به انجام‌نشده');
+            });
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'idea-text';
+            textSpan.appendChild(highlightText(idea.text, searchQuery));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '✕';
+            deleteBtn.addEventListener('click', () => {
+              const updated = loadIdeas().filter(i => i.id !== idea.id);
+              saveIdeas(updated);
+              item.style.opacity = '0';
+              item.style.transform = 'translateX(20px)';
+              setTimeout(() => render(), 200);
+              showToast('🗑️ ایده حذف شد');
+            });
+
+            item.appendChild(checkbox);
+            item.appendChild(textSpan);
+            item.appendChild(deleteBtn);
+            ideaListEl.appendChild(item);
           });
+        }
 
-          onAuthSuccess();
+        updateStats(all);
+      }
+
+      function addNewIdea() {
+        const text = ideaInput.value.trim();
+        if (!text) {
+          ideaInput.focus();
           return;
         }
 
-        // در مرورگر: شبیه‌سازی موفقیت (برای تست)
-        if (window.PublicKeyCredential) {
-          const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-          if (available) {
-            // تلاش واقعی WebAuthn
-            const challenge = new Uint8Array(32);
-            crypto.getRandomValues(challenge);
+        const ideas = loadIdeas();
+        const newIdea = {
+          id: 'idea_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          text: text,
+          completed: false,
+          createdAt: Date.now()
+        };
 
-            let userId = localStorage.getItem('iv_uid');
-            if (!userId) {
-              const arr = new Uint8Array(16);
-              crypto.getRandomValues(arr);
-              userId = btoa(String.fromCharCode(...arr));
-              localStorage.setItem('iv_uid', userId);
-            }
+        ideas.push(newIdea);
+        saveIdeas(ideas);
+        render();
 
-            const credId = localStorage.getItem('iv_cred');
-
-            if (credId) {
-              const idBytes = Uint8Array.from(atob(credId), c => c.charCodeAt(0));
-              await navigator.credentials.get({
-                publicKey: {
-                  challenge,
-                  timeout: 60000,
-                  userVerification: 'required',
-                  allowCredentials: [{
-                    id: idBytes,
-                    type: 'public-key',
-                    transports: ['internal']
-                  }]
-                }
-              });
-            } else {
-              const uidBytes = Uint8Array.from(atob(userId), c => c.charCodeAt(0));
-              const cred = await navigator.credentials.create({
-                publicKey: {
-                  challenge,
-                  rp: { name: 'IdeaVault' },
-                  user: {
-                    id: uidBytes,
-                    name: 'ideavault-user',
-                    displayName: 'IdeaVault User'
-                  },
-                  pubKeyCredParams: [
-                    { type: 'public-key', alg: -7 },
-                    { type: 'public-key', alg: -257 }
-                  ],
-                  authenticatorSelection: {
-                    authenticatorAttachment: 'platform',
-                    userVerification: 'required'
-                  },
-                  timeout: 60000
-                }
-              });
-
-              if (cred && cred.rawId) {
-                const raw = new Uint8Array(cred.rawId);
-                localStorage.setItem('iv_cred', btoa(String.fromCharCode(...raw)));
-              }
-            }
-
-            onAuthSuccess();
-            return;
-          }
-        }
-
-        throw new Error('این دستگاه از اثر انگشت پشتیبانی نمی‌کند');
-
-      } catch (err) {
-        console.error('Auth error:', err);
-        fingerprintBtn.classList.remove('scanning');
-        fingerprintBtn.classList.add('error');
-        fingerprintIcon.textContent = '❌';
-        setLockStatus(
-          err.message || 'احراز هویت ناموفق بود. دوباره تلاش کنید.',
-          'error'
-        );
-
-        setTimeout(() => {
-          fingerprintBtn.classList.remove('error');
-          fingerprintIcon.textContent = '🔒';
-        }, 1500);
-      }
-    }
-
-    function onAuthSuccess() {
-      isAuthenticated = true;
-      fingerprintBtn.classList.remove('scanning');
-      fingerprintBtn.classList.add('success');
-      fingerprintIcon.textContent = '✅';
-      setLockStatus('ورود موفق!', 'success');
-
-      setTimeout(() => {
-        lockScreen.classList.add('unlocked');
-        appContent.classList.remove('hidden');
-        loadAndRender();
-      }, 600);
-    }
-
-    /* =========================================================
-       THEME
-    ========================================================= */
-    function applyTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
-      localStorage.setItem(THEME_KEY, theme);
-    }
-
-    function initTheme() {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved) { applyTheme(saved); return; }
-      const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-      applyTheme(prefersLight ? 'light' : 'dark');
-    }
-
-    themeToggle.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme');
-      applyTheme(cur === 'light' ? 'dark' : 'light');
-    });
-
-    /* =========================================================
-       DATA
-    ========================================================= */
-    function loadIdeas() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch { return []; }
-    }
-
-    function saveIdeas(ideas) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(ideas));
-    }
-
-    /* =========================================================
-       STATS
-    ========================================================= */
-    function updateStats(ideas) {
-      const total = ideas.length;
-      const done = ideas.filter(i => i.completed).length;
-      const remain = total - done;
-      const percent = total === 0 ? 0 : Math.round((done / total) * 100);
-
-      progressFill.style.width = percent + '%';
-      percentNum.textContent = toFa(percent) + '٪';
-      doneStat.textContent = toFa(done);
-      remainStat.textContent = toFa(remain);
-      totalStat.textContent = toFa(total);
-    }
-
-    /* =========================================================
-       FILTER & SORT
-    ========================================================= */
-    function filterAndSort(ideas) {
-      let list = [...ideas];
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        list = list.filter(i => i.text.toLowerCase().includes(q));
-      }
-
-      switch (currentSort) {
-        case 'newest':
-          list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-          break;
-        case 'oldest':
-          list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-          break;
-        case 'incomplete':
-          list.sort((a, b) => {
-            if (a.completed !== b.completed) return a.completed ? 1 : -1;
-            return (b.createdAt || 0) - (a.createdAt || 0);
-          });
-          break;
-        case 'completed':
-          list.sort((a, b) => {
-            if (a.completed !== b.completed) return a.completed ? -1 : 1;
-            return (b.createdAt || 0) - (a.createdAt || 0);
-          });
-          break;
-        case 'alpha':
-          list.sort((a, b) => a.text.localeCompare(b.text, 'fa'));
-          break;
-      }
-      return list;
-    }
-
-    function highlightText(text, query) {
-      if (!query.trim()) return document.createTextNode(text);
-      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(${escaped})`, 'gi');
-      const parts = text.split(regex);
-      const frag = document.createDocumentFragment();
-      parts.forEach(part => {
-        if (part.toLowerCase() === query.toLowerCase()) {
-          const mark = document.createElement('mark');
-          mark.textContent = part;
-          frag.appendChild(mark);
-        } else if (part) {
-          frag.appendChild(document.createTextNode(part));
-        }
-      });
-      return frag;
-    }
-
-    /* =========================================================
-       RENDER
-    ========================================================= */
-    function render() {
-      const all = loadIdeas();
-      const visible = filterAndSort(all);
-
-      ideaListEl.innerHTML = '';
-
-      if (all.length === 0) {
-        ideaListEl.innerHTML = `
-          <div class="empty-state">
-            <span class="emoji">✨</span>
-            هنوز ایده‌ای ثبت نشده<br>
-            اولین ایده‌ات رو بنویس و اضافه کن
-          </div>`;
-      } else if (visible.length === 0) {
-        ideaListEl.innerHTML = `
-          <div class="empty-state">
-            <span class="emoji">🔍</span>
-            ایده‌ای با این جستجو پیدا نشد
-          </div>`;
-      } else {
-        visible.forEach((idea, index) => {
-          const item = document.createElement('div');
-          item.className = `idea-item ${idea.completed ? 'completed' : ''}`;
-          item.dataset.id = idea.id;
-          item.style.animationDelay = `${Math.min(index * 0.025, 0.25)}s`;
-
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.className = 'idea-check';
-          checkbox.checked = !!idea.completed;
-
-          checkbox.addEventListener('change', (e) => {
-            const allList = loadIdeas();
-            const target = allList.find(i => i.id === idea.id);
-            if (target) {
-              target.completed = e.target.checked;
-              saveIdeas(allList);
-            }
-            item.classList.toggle('completed', e.target.checked);
-            updateStats(allList);
-            showToast(e.target.checked ? '✅ انجام شد!' : '↩️ برگشت به انجام‌نشده');
-          });
-
-          const textSpan = document.createElement('span');
-          textSpan.className = 'idea-text';
-          textSpan.appendChild(highlightText(idea.text, searchQuery));
-
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'delete-btn';
-          deleteBtn.textContent = '✕';
-          deleteBtn.addEventListener('click', () => {
-            const updated = loadIdeas().filter(i => i.id !== idea.id);
-            saveIdeas(updated);
-            item.style.opacity = '0';
-            item.style.transform = 'translateX(20px)';
-            setTimeout(() => render(), 200);
-            showToast('🗑️ ایده حذف شد');
-          });
-
-          item.appendChild(checkbox);
-          item.appendChild(textSpan);
-          item.appendChild(deleteBtn);
-          ideaListEl.appendChild(item);
-        });
-      }
-
-      updateStats(all);
-    }
-
-    /* =========================================================
-       LOAD & RENDER
-    ========================================================= */
-    function loadAndRender() {
-      render();
-    }
-
-    /* =========================================================
-       ADD
-    ========================================================= */
-    function addNewIdea() {
-      const text = ideaInput.value.trim();
-      if (!text) {
+        ideaInput.value = '';
         ideaInput.focus();
-        return;
+
+        const newItem = ideaListEl.querySelector(`[data-id="${newIdea.id}"]`);
+        if (newItem) {
+          newItem.classList.add('new-item');
+          setTimeout(() => newItem.classList.remove('new-item'), 700);
+        }
+        showToast('💡 ایده اضافه شد');
       }
 
-      const ideas = loadIdeas();
-      const newIdea = {
-        id: 'idea_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-        text: text,
-        completed: false,
-        createdAt: Date.now()
-      };
+      addBtn.addEventListener('click', addNewIdea);
 
-      ideas.push(newIdea);
-      saveIdeas(ideas);
-      render();
-
-      ideaInput.value = '';
-      ideaInput.focus();
-
-      const newItem = ideaListEl.querySelector(`[data-id="${newIdea.id}"]`);
-      if (newItem) {
-        newItem.classList.add('new-item');
-        setTimeout(() => newItem.classList.remove('new-item'), 700);
-      }
-      showToast('💡 ایده اضافه شد');
-    }
-
-    /* =========================================================
-       EVENTS
-    ========================================================= */
-    fingerprintBtn.addEventListener('click', authenticate);
-    unlockBtn.addEventListener('click', authenticate);
-
-    // Auto-trigger biometric on load
-    window.addEventListener('load', () => {
-      setTimeout(authenticate, 400);
-    });
-
-    addBtn.addEventListener('click', addNewIdea);
-
-    ideaInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        addNewIdea();
-      }
-    });
-
-    let searchTimer;
-    searchInput.addEventListener('input', (e) => {
-      searchQuery = e.target.value;
-      clearSearch.classList.toggle('visible', searchQuery.length > 0);
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(render, 120);
-    });
-
-    clearSearch.addEventListener('click', () => {
-      searchInput.value = '';
-      searchQuery = '';
-      clearSearch.classList.remove('visible');
-      render();
-      searchInput.focus();
-    });
-
-    function setSort(key) {
-      currentSort = key;
-      localStorage.setItem(SORT_KEY, key);
-      sortLabel.textContent = sortLabels[key];
-      document.querySelectorAll('.sort-option').forEach(opt => {
-        opt.classList.toggle('active', opt.dataset.sort === key);
-      });
-      sortWrap.classList.remove('open');
-      render();
-    }
-
-    sortBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sortWrap.classList.toggle('open');
-    });
-
-    document.querySelectorAll('.sort-option').forEach(opt => {
-      opt.addEventListener('click', () => setSort(opt.dataset.sort));
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!sortWrap.contains(e.target)) sortWrap.classList.remove('open');
-    });
-
-    /* =========================================================
-       INIT
-    ========================================================= */
-    initTheme();
-    setSort(currentSort);
-
-    /* =========================================================
-       BACK BUTTON (Android) - Prevent accidental exit
-    ========================================================= */
-    if (Capacitor && Capacitor.isNativePlatform()) {
-      const { App } = await import('@capacitor/app');
-      App.addListener('backButton', ({ canGoBack }) => {
-        if (!isAuthenticated) {
-          App.exitApp();
-        } else {
-          // در اپ: خروج با دکمه برگشت
-          App.exitApp();
+      ideaInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addNewIdea();
         }
       });
-    }
+
+      let searchTimer;
+      searchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        clearSearch.classList.toggle('visible', searchQuery.length > 0);
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(render, 120);
+      });
+
+      clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        searchQuery = '';
+        clearSearch.classList.remove('visible');
+        render();
+        searchInput.focus();
+      });
+
+      function setSort(key) {
+        currentSort = key;
+        localStorage.setItem(SORT_KEY, key);
+        sortLabel.textContent = sortLabels[key];
+        document.querySelectorAll('.sort-option').forEach(opt => {
+          opt.classList.toggle('active', opt.dataset.sort === key);
+        });
+        sortWrap.classList.remove('open');
+        render();
+      }
+
+      sortBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sortWrap.classList.toggle('open');
+      });
+
+      document.querySelectorAll('.sort-option').forEach(opt => {
+        opt.addEventListener('click', () => setSort(opt.dataset.sort));
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!sortWrap.contains(e.target)) sortWrap.classList.remove('open');
+      });
+
+      initTheme();
+      setSort(currentSort);
+    })();
   </script>
 </body>
-  </html>
+            </html>
