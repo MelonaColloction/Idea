@@ -1,0 +1,833 @@
+name: Build IdeaVault Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+      - name: Checkout
+        uses: actions/checkout@v5
+
+
+      # ==========================================
+      # NODE.JS
+      # ==========================================
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+
+      # ==========================================
+      # JAVA
+      # ==========================================
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+
+      # ==========================================
+      # ANDROID SDK
+      # ==========================================
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+
+      # ==========================================
+      # INSTALL ANDROID PACKAGES
+      # ==========================================
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses || true
+
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+          echo "Android SDK packages installed."
+
+
+      # ==========================================
+      # PREPARE WEB APP
+      # ==========================================
+      - name: Prepare web app
+        run: |
+          test -f index.html
+
+          rm -rf www
+          mkdir -p www
+
+          cp index.html www/index.html
+
+          echo "Web app prepared."
+
+
+      # ==========================================
+      # CREATE PACKAGE.JSON (WITH BIOMETRIC PLUGIN)
+      # ==========================================
+      - name: Create package.json
+        run: |
+          cat > package.json <<'EOF'
+          {
+            "name": "ideavault",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/core": "^7.4.0",
+              "@capacitor/android": "^7.4.0",
+              "@capacitor/app": "^7.0.0",
+              "@aparajita/capacitor-biometric-auth": "^9.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^7.4.0"
+            }
+          }
+          EOF
+
+
+      # ==========================================
+      # INSTALL DEPENDENCIES
+      # ==========================================
+      - name: Install dependencies
+        run: |
+          npm install
+
+
+      # ==========================================
+      # CAPACITOR CONFIG
+      # ==========================================
+      - name: Create Capacitor config
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.ideavault.app",
+            "appName": "IdeaVault",
+            "webDir": "www",
+            "android": {
+              "allowMixedContent": false
+            }
+          }
+          EOF
+
+
+      # ==========================================
+      # ADD ANDROID PLATFORM
+      # ==========================================
+      - name: Add Android
+        run: |
+          npx cap add android
+
+
+      # ==========================================
+      # ENABLE FULLSCREEN MAIN ACTIVITY
+      # ==========================================
+      - name: Enable Fullscreen
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+
+          base = "android/app/src/main/java"
+          main_activity = None
+
+          for root, dirs, files in os.walk(base):
+              if "MainActivity.java" in files:
+                  main_activity = os.path.join(root, "MainActivity.java")
+                  break
+
+          if not main_activity:
+              raise SystemExit("MainActivity.java not found.")
+
+          print("Found:", main_activity)
+
+          with open(main_activity, "r", encoding="utf-8") as f:
+              original = f.read()
+
+          package_match = re.search(
+              r'^\s*package\s+([^;]+);',
+              original,
+              re.MULTILINE
+          )
+
+          if not package_match:
+              raise SystemExit("Package not found.")
+
+          package_name = package_match.group(1)
+
+          fullscreen_activity = f'''package {package_name};
+
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.WindowManager;
+
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {{
+
+              @Override
+              public void onCreate(Bundle savedInstanceState) {{
+                  super.onCreate(savedInstanceState);
+
+                  getWindow().setFlags(
+                      WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                      WindowManager.LayoutParams.FLAG_FULLSCREEN
+                  );
+
+                  getWindow().getDecorView().setSystemUiVisibility(
+                      View.SYSTEM_UI_FLAG_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                      | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                  );
+              }}
+          }}
+          '''
+
+          with open(main_activity, "w", encoding="utf-8") as f:
+              f.write(fullscreen_activity)
+
+          print("Fullscreen MainActivity created.")
+          PY
+
+
+      # ==========================================
+      # SYNC ANDROID (AFTER PLUGIN INSTALL)
+      # ==========================================
+      - name: Sync Android
+        run: |
+          npx cap sync android
+
+
+      # ==========================================
+      # VERSION
+      # ==========================================
+      - name: Set version
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION_CODE=$((RUN_NUMBER + 100))
+          VERSION_NAME="1.0.${RUN_NUMBER}"
+
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+          echo "Version: $VERSION_NAME ($VERSION_CODE)"
+
+
+      # ==========================================
+      # LOAD KEYSTORE
+      # ==========================================
+      - name: Load existing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+
+          echo "$KEYSTORE_BASE64" | base64 --decode > IdeaVault.keystore
+
+          test -s IdeaVault.keystore
+
+          mkdir -p android/app
+          cp IdeaVault.keystore android/app/IdeaVault.keystore
+
+          echo "Keystore loaded."
+
+
+      # ==========================================
+      # SIGNING PROPERTIES
+      # ==========================================
+      - name: Configure signing
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          test -n "$KEYSTORE_PASSWORD"
+
+          # اگر KEY_ALIAS توی secrets نبود، پیش‌فرض ideavault
+          ALIAS="${KEY_ALIAS:-ideavault}"
+
+          cat >> android/gradle.properties <<EOF
+
+          IDEA_VAULT_KEYSTORE_FILE=IdeaVault.keystore
+          IDEA_VAULT_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+          IDEA_VAULT_KEY_ALIAS=${ALIAS}
+          IDEA_VAULT_KEY_PASSWORD=${KEYSTORE_PASSWORD}
+          EOF
+
+          echo "Signing configured with alias: $ALIAS"
+
+
+      # ==========================================
+      # CONFIGURE ANDROID GRADLE + MIN SDK
+      # ==========================================
+      - name: Configure Android Gradle
+        run: |
+          python3 - <<'PY'
+          import re
+          import os
+
+          path = "android/app/build.gradle"
+          with open(path, "r", encoding="utf-8") as f:
+              text = f.read()
+
+          # applicationId
+          text = re.sub(
+              r'applicationId\s+"[^"]+"',
+              'applicationId "com.ideavault.app"',
+              text, count=1
+          )
+
+          # compileSdk
+          text = re.sub(
+              r'compileSdk\s+\d+',
+              'compileSdk 35',
+              text, count=1
+          )
+
+          # minSdk → حداقل 23 برای بیومتریک
+          if re.search(r'minSdk\s+(\d+)', text):
+              def fix_min(m):
+                  val = int(m.group(1))
+                  return 'minSdk ' + str(max(val, 23))
+              text = re.sub(r'minSdk\s+(\d+)', fix_min, text, count=1)
+          else:
+              text = re.sub(
+                  r'(defaultConfig\s*\{)',
+                  r'\1\n            minSdk 23',
+                  text, count=1
+              )
+
+          # targetSdk
+          text = re.sub(
+              r'targetSdk\s+\d+',
+              'targetSdk 35',
+              text, count=1
+          )
+
+          # versionCode
+          text = re.sub(
+              r'versionCode\s+\d+',
+              'versionCode ' + os.environ["VERSION_CODE"],
+              text, count=1
+          )
+
+          # versionName
+          text = re.sub(
+              r'versionName\s+"[^"]+"',
+              'versionName "' + os.environ["VERSION_NAME"] + '"',
+              text, count=1
+          )
+
+          # حذف signingConfigs قدیمی
+          text = re.sub(
+              r'\n\s*signingConfigs\s*\{.*?\n\s*\}\s*(?=\n\s*buildTypes)',
+              '', text, count=1, flags=re.S
+          )
+
+          signing_block = '''
+              signingConfigs {
+                  release {
+                      storeFile file(IDEA_VAULT_KEYSTORE_FILE)
+                      storePassword IDEA_VAULT_KEYSTORE_PASSWORD
+                      keyAlias IDEA_VAULT_KEY_ALIAS
+                      keyPassword IDEA_VAULT_KEY_PASSWORD
+                      v1SigningEnabled true
+                      v2SigningEnabled true
+                  }
+              }
+
+          '''
+
+          if "signingConfigs {" not in text:
+              text = text.replace(
+                  "    buildTypes {",
+                  signing_block + "    buildTypes {",
+                  1
+              )
+
+          # Release signing config
+          release_pattern = r'(buildTypes\s*\{\s*release\s*\{)'
+          if "signingConfig signingConfigs.release" not in text:
+              text = re.sub(
+                  release_pattern,
+                  r'\1\n            signingConfig signingConfigs.release',
+                  text, count=1, flags=re.S
+              )
+
+          # minify off
+          if re.search(r'buildTypes\s*\{.*?release\s*\{', text, re.S):
+              rm = re.search(
+                  r'(buildTypes\s*\{\s*release\s*\{)(.*?)(\n\s*\})',
+                  text, re.S
+              )
+              if rm:
+                  body = rm.group(2)
+                  if "minifyEnabled" in body:
+                      body = re.sub(
+                          r'minifyEnabled\s+\w+',
+                          'minifyEnabled false',
+                          body, count=1
+                      )
+                  else:
+                      body = "\n            minifyEnabled false" + body
+                  text = text[:rm.start(2)] + body + text[rm.end(2):]
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(text)
+
+          print("Gradle configured.")
+          PY
+
+
+      # ==========================================
+      # MANIFEST: CLEAN + ADD BIOMETRIC
+      # ==========================================
+      - name: Configure Android Manifest
+        run: |
+          python3 - <<'PY'
+          import re
+
+          path = "android/app/src/main/AndroidManifest.xml"
+
+          with open(path, "r", encoding="utf-8") as f:
+              text = f.read()
+
+          # پاک کردن پرمیشن‌های اضافی
+          unnecessary = [
+              "READ_CONTACTS", "WRITE_CONTACTS",
+              "READ_SMS", "SEND_SMS", "RECEIVE_SMS",
+              "CALL_PHONE", "READ_PHONE_STATE",
+              "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION",
+              "CAMERA", "RECORD_AUDIO",
+              "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE",
+              "MANAGE_EXTERNAL_STORAGE",
+              "REQUEST_INSTALL_PACKAGES",
+              "SYSTEM_ALERT_WINDOW",
+              "BIND_ACCESSIBILITY_SERVICE"
+          ]
+
+          for p in unnecessary:
+              pattern = r'\s*<uses-permission\s+android:name="android\.permission\.' + p + r'"\s*/>'
+              text = re.sub(pattern, '', text)
+
+          # اضافه کردن USE_BIOMETRIC
+          if "USE_BIOMETRIC" not in text:
+              last_perm = list(re.finditer(r'<uses-permission[^>]*/>', text))
+              if last_perm:
+                  last = last_perm[-1]
+                  insert_pos = last.end()
+                  text = (
+                      text[:insert_pos]
+                      + '\n    <uses-permission android:name="android.permission.USE_BIOMETRIC" />'
+                      + text[insert_pos:]
+                  )
+              else:
+                  text = text.replace(
+                      '<application',
+                      '    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n\n    <application',
+                      1
+                  )
+
+          # USE_FINGERPRINT برای سازگاری
+          if "USE_FINGERPRINT" not in text:
+              text = re.sub(
+                  r'(<uses-permission android:name="android\.permission\.USE_BIOMETRIC"\s*/>)',
+                  r'\1\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />',
+                  text, count=1
+              )
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(text)
+
+          print("Manifest configured with biometric permissions.")
+          PY
+
+
+      # ==========================================
+      # INSTALL PILLOW
+      # ==========================================
+      - name: Install Pillow
+        run: |
+          python3 -m pip install pillow
+
+
+      # ==========================================
+      # GENERATE IDEA VAULT ICON (AUTO)
+      # ==========================================
+      - name: Generate IdeaVault icon
+        run: |
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw, ImageFilter
+          import math
+
+          SIZE = 1024
+          img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+
+          # ==========================================
+          # GRADIENT BACKGROUND
+          # ==========================================
+          bg = Image.new("RGBA", (SIZE, SIZE))
+          bg_draw = ImageDraw.Draw(bg)
+
+          for y in range(SIZE):
+              for x in range(0, SIZE, 4):
+                  t = (x + y) / (SIZE * 2)
+                  r = int(10 + (45 - 10) * t)
+                  g = int(14 + (20 - 14) * t)
+                  b = int(23 + (80 - 23) * t)
+                  bg_draw.rectangle([x, y, x + 4, y + 1], fill=(r, g, b, 255))
+
+          # درخشش رادیال مرکزی
+          glow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+          glow_draw = ImageDraw.Draw(glow)
+          cx, cy = SIZE // 2, SIZE // 2
+
+          for radius in range(500, 0, -3):
+              alpha = int((1 - radius / 500) ** 2 * 90)
+              glow_draw.ellipse(
+                  [cx - radius, cy - radius, cx + radius, cy + radius],
+                  fill=(59, 130, 246, alpha)
+              )
+
+          glow = glow.filter(ImageFilter.GaussianBlur(30))
+          bg = Image.alpha_composite(bg, glow)
+
+          # ==========================================
+          # ROUNDED SQUARE MASK
+          # ==========================================
+          mask = Image.new("L", (SIZE, SIZE), 0)
+          mask_draw = ImageDraw.Draw(mask)
+          radius = int(SIZE * 0.22)
+          mask_draw.rounded_rectangle(
+              [0, 0, SIZE, SIZE],
+              radius=radius,
+              fill=255
+          )
+
+          result = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+          result.paste(bg, (0, 0), mask)
+
+          # ==========================================
+          # LIGHTBULB - GLOW HALO
+          # ==========================================
+          halo = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+          halo_draw = ImageDraw.Draw(halo)
+
+          bulb_cx, bulb_cy = SIZE // 2, int(SIZE * 0.44)
+          bulb_r = int(SIZE * 0.20)
+
+          for i in range(40, 0, -1):
+              a = int((1 - i / 40) * 120)
+              halo_draw.ellipse(
+                  [bulb_cx - bulb_r - i * 3, bulb_cy - bulb_r - i * 3,
+                   bulb_cx + bulb_r + i * 3, bulb_cy + bulb_r + i * 3],
+                  fill=(96, 165, 250, a)
+              )
+
+          halo = halo.filter(ImageFilter.GaussianBlur(20))
+          result = Image.alpha_composite(result, halo)
+          draw = ImageDraw.Draw(result)
+
+          # ==========================================
+          # LIGHTBULB GLASS
+          # ==========================================
+          draw.ellipse(
+              [bulb_cx - bulb_r, bulb_cy - bulb_r,
+               bulb_cx + bulb_r, bulb_cy + bulb_r],
+              fill=(224, 242, 254, 255),
+              outline=(147, 197, 253, 255),
+              width=6
+          )
+
+          # highlight
+          hl_r = int(bulb_r * 0.45)
+          hl_off = int(bulb_r * 0.35)
+          draw.ellipse(
+              [bulb_cx - hl_r - hl_off, bulb_cy - hl_r - hl_off,
+               bulb_cx + hl_r - hl_off, bulb_cy + hl_r - hl_off],
+              fill=(255, 255, 255, 180)
+          )
+
+          # ==========================================
+          # FILAMENT
+          # ==========================================
+          f_y = bulb_cy + int(bulb_r * 0.15)
+          f_w = int(bulb_r * 0.55)
+          f_h = int(bulb_r * 0.55)
+
+          draw.arc(
+              [bulb_cx - f_w, f_y - f_h // 2,
+               bulb_cx, f_y + f_h // 2],
+              start=180, end=360,
+              fill=(251, 191, 36, 255),
+              width=8
+          )
+          draw.arc(
+              [bulb_cx, f_y - f_h // 2,
+               bulb_cx + f_w, f_y + f_h // 2],
+              start=180, end=360,
+              fill=(251, 191, 36, 255),
+              width=8
+          )
+
+          # ==========================================
+          # BASE
+          # ==========================================
+          base_w = int(bulb_r * 0.75)
+          base_h = int(bulb_r * 0.30)
+          base_y = bulb_cy + bulb_r - int(bulb_r * 0.05)
+
+          draw.rounded_rectangle(
+              [bulb_cx - base_w // 2, base_y,
+               bulb_cx + base_w // 2, base_y + base_h],
+              radius=10,
+              fill=(148, 163, 184, 255),
+              outline=(100, 116, 139, 255),
+              width=4
+          )
+
+          for i in range(1, 4):
+              y = base_y + (base_h * i // 4)
+              draw.line(
+                  [bulb_cx - base_w // 2 + 4, y,
+                   bulb_cx + base_w // 2 - 4, y],
+                  fill=(71, 85, 105, 255),
+                  width=3
+              )
+
+          # ==========================================
+          # VAULT KEYHOLE
+          # ==========================================
+          key_cx = bulb_cx
+          key_cy = bulb_cy + int(bulb_r * 0.05)
+
+          key_r = int(bulb_r * 0.18)
+          draw.ellipse(
+              [key_cx - key_r, key_cy - key_r,
+               key_cx + key_r, key_cy + key_r],
+              fill=(30, 41, 59, 255)
+          )
+          draw.ellipse(
+              [key_cx - key_r + 4, key_cy - key_r + 4,
+               key_cx + key_r - 4, key_cy + key_r - 4],
+              fill=(59, 130, 246, 255)
+          )
+
+          body_top = key_cy + int(key_r * 0.3)
+          body_bottom = key_cy + int(key_r * 1.8)
+          body_w_top = int(key_r * 0.7)
+          body_w_bot = int(key_r * 1.1)
+
+          draw.polygon(
+              [
+                  (key_cx - body_w_top, body_top),
+                  (key_cx + body_w_top, body_top),
+                  (key_cx + body_w_bot, body_bottom),
+                  (key_cx - body_w_bot, body_bottom),
+              ],
+              fill=(30, 41, 59, 255)
+          )
+
+          # ==========================================
+          # GOLD RING
+          # ==========================================
+          ring_r = bulb_r + 20
+          draw.ellipse(
+              [bulb_cx - ring_r, bulb_cy - ring_r,
+               bulb_cx + ring_r, bulb_cy + ring_r],
+              outline=(251, 191, 36, 200),
+              width=4
+          )
+
+          # ==========================================
+          # SHADOW
+          # ==========================================
+          shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+          shadow_draw = ImageDraw.Draw(shadow)
+          shadow_draw.ellipse(
+              [bulb_cx - int(bulb_r * 1.3), base_y + base_h + 10,
+               bulb_cx + int(bulb_r * 1.3), base_y + base_h + 60],
+              fill=(0, 0, 0, 90)
+          )
+          shadow = shadow.filter(ImageFilter.GaussianBlur(15))
+          result = Image.alpha_composite(result, shadow)
+
+          # ==========================================
+          # SAVE
+          # ==========================================
+          result.save("icon.png", "PNG", optimize=True)
+          print("icon.png generated:", result.size)
+          PY
+
+
+      # ==========================================
+      # GENERATE ANDROID ICONS
+      # ==========================================
+      - name: Generate Android icons
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          import os
+
+          filename = "icon.png"
+
+          if not os.path.exists(filename):
+              raise SystemExit("icon.png not found!")
+
+          print("Loading:", filename)
+
+          source = Image.open(filename).convert("RGBA")
+
+          sizes = {
+              "mdpi": 48,
+              "hdpi": 72,
+              "xhdpi": 96,
+              "xxhdpi": 144,
+              "xxxhdpi": 192
+          }
+
+          for density, size in sizes.items():
+              folder = f"android/app/src/main/res/mipmap-{density}"
+              os.makedirs(folder, exist_ok=True)
+
+              icon = source.resize((size, size), Image.Resampling.LANCZOS)
+
+              icon.save(folder + "/ic_launcher.png")
+              icon.save(folder + "/ic_launcher_round.png")
+
+          print("Android icons generated.")
+          PY
+
+
+      # ==========================================
+      # REMOVE ADAPTIVE ICON DEFAULTS
+      # ==========================================
+      - name: Remove adaptive icon defaults
+        run: |
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+
+      # ==========================================
+      # VERIFY
+      # ==========================================
+      - name: Verify configuration
+        run: |
+          echo "=========================================="
+          echo "IDEAVAULT CONFIGURATION"
+          echo "=========================================="
+
+          echo ""
+          echo "APPLICATION ID:"
+          grep "applicationId" android/app/build.gradle
+
+          echo ""
+          echo "SDK / VERSION:"
+          grep -E "compileSdk|minSdk|targetSdk|versionCode|versionName" android/app/build.gradle
+
+          echo ""
+          echo "BIOMETRIC PERMISSIONS:"
+          grep -i "biometric\|fingerprint" android/app/src/main/AndroidManifest.xml
+
+          echo ""
+          echo "ICON FILES:"
+          ls -la android/app/src/main/res/mipmap-xxxhdpi/
+
+
+      # ==========================================
+      # BUILD RELEASE APK
+      # ==========================================
+      - name: Build Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew clean
+          ./gradlew assembleRelease --no-daemon
+
+
+      # ==========================================
+      # INSPECT APK
+      # ==========================================
+      - name: Inspect APK
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+
+          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+          AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner"
+
+          echo "=========================================="
+          echo "IDEAVAULT APK"
+          echo "=========================================="
+
+          echo ""
+          echo "APK SIZE:"
+          ls -lh "$APK"
+
+          echo ""
+          echo "SHA256:"
+          sha256sum "$APK"
+
+          echo ""
+          echo "PACKAGE INFO:"
+          "$AAPT" dump badging "$APK" | head -n 20
+
+          echo ""
+          echo "PERMISSIONS:"
+          "$AAPT" dump permissions "$APK"
+
+          echo ""
+          echo "SIGNATURE:"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+
+      # ==========================================
+      # PREPARE RELEASE
+      # ==========================================
+      - name: Prepare release
+        run: |
+          mkdir -p release
+
+          cp android/app/build/outputs/apk/release/app-release.apk release/IdeaVault.apk
+          cp icon.png release/IdeaVault-Icon.png
+
+          echo "Release ready."
+
+
+      # ==========================================
+      # UPLOAD
+      # ==========================================
+      - name: Upload IdeaVault APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: IdeaVault-Release
+          path: release/
+          if-no-files-found: error
+
+
+      # ==========================================
+      # CLEANUP
+      # ==========================================
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f IdeaVault.keystore
+          rm -f android/app/IdeaVault.keystore
